@@ -184,18 +184,27 @@ async def post_competitors(req: CompetitorsRequest):
     return {"primary": primary, "competitors": competitors}
 
 
-_discover_lock = asyncio.Lock()
+DISCOVER_GENERATION_TIMEOUT_SECONDS = 240
+
+_discover_refreshing = False
 
 
 async def _refresh_discover_cache():
-    if _discover_lock.locked():
-        return
-    async with _discover_lock:
-        try:
-            data = await discover.generate_discoveries()
-            await _cache_set("discover_cache", "latest", data)
-        except Exception:
-            logger.exception("background discover refresh failed")
+    global _discover_refreshing
+    try:
+        data = await asyncio.wait_for(
+            discover.generate_discoveries(), timeout=DISCOVER_GENERATION_TIMEOUT_SECONDS
+        )
+        await _cache_set("discover_cache", "latest", data)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "discover generation exceeded %ss, aborting - will retry on next request",
+            DISCOVER_GENERATION_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        logger.exception("background discover refresh failed")
+    finally:
+        _discover_refreshing = False
 
 
 @api.get("/discover")
@@ -203,12 +212,18 @@ async def get_discover():
     """A fresh generation takes 1-2+ minutes (multiple web searches), far too
     long to block a request on. Serve whatever's cached (even if stale) and
     kick off a background refresh; the first-ever call with nothing cached
-    yet gets a "pending" response the frontend polls until it's ready."""
+    yet gets a "pending" response the frontend polls until it's ready.
+
+    The refreshing flag is checked and set synchronously with no `await`
+    between them, so two requests arriving back to back can't both slip
+    past the check and launch duplicate (double-cost) generations."""
+    global _discover_refreshing
     cached = await _cache_get("discover_cache", "latest")
     if _fresh(cached, DISCOVER_CACHE_TTL_SECONDS):
         return cached["data"]
 
-    if not _discover_lock.locked():
+    if not _discover_refreshing:
+        _discover_refreshing = True
         asyncio.create_task(_refresh_discover_cache())
 
     if cached:
