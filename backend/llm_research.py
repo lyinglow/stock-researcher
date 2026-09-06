@@ -1,10 +1,11 @@
 import json
 import logging
 import os
-import re
 import uuid
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+from json_utils import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -33,18 +34,6 @@ RESPONSE_SCHEMA_HINT = """Return ONLY a JSON object with exactly this shape:
 competitor_tickers must be the 2 biggest publicly-traded, same-business
 competitors, given as valid Yahoo Finance ticker symbols (not the company
 being researched itself). Catalysts must be 12-month-forward and specific."""
-
-
-def _extract_json(text: str) -> dict:
-    text = text.strip()
-    fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-    if fence:
-        text = fence.group(1).strip()
-    start = text.find("{")
-    end = text.rfind("}")
-    if start != -1 and end != -1:
-        text = text[start:end + 1]
-    return json.loads(text)
 
 
 async def generate_research(ticker: str, snapshot: dict) -> dict:
@@ -81,7 +70,7 @@ async def generate_research(ticker: str, snapshot: dict) -> dict:
 
     raw = await chat.send_message(UserMessage(text=prompt))
     try:
-        data = _extract_json(raw)
+        data = extract_json(raw)
     except Exception:
         logger.error("Failed to parse LLM JSON for %s: %s", ticker, raw)
         raise

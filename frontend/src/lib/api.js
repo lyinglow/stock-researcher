@@ -44,4 +44,8 @@ export function postCompetitors(ticker, tickers) {
   });
 }
 
+export function getDiscover() {
+  return request(`/discover`);
+}
+
 export { ApiError };

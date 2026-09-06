@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -11,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
+import discover
 import llm_research
 import yahoo
 
@@ -24,6 +26,7 @@ MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "stock_researcher")
 STOCK_CACHE_TTL_SECONDS = 60
 RESEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
+DISCOVER_CACHE_TTL_SECONDS = 60 * 60 * 4
 
 mongo_client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=1200)
 db = mongo_client[DB_NAME]
@@ -35,25 +38,30 @@ async def lifespan(app: FastAPI):
     mongo_client.close()
 
 
-async def _cache_get(collection: str, ticker: str) -> Optional[dict]:
-    """Best-effort cache read. Caching is an optimization, not a dependency -
-    if Mongo is unreachable or unconfigured, callers just treat it as a miss."""
-    try:
-        return await db[collection].find_one({"ticker": ticker}, {"_id": 0})
-    except Exception:
-        logger.warning("cache read failed for %s/%s, continuing without cache", collection, ticker)
-        return None
+_memory_cache: dict = {}
 
 
-async def _cache_set(collection: str, ticker: str, data: dict) -> None:
+async def _cache_get(collection: str, key: str) -> Optional[dict]:
+    """Mongo read with an in-memory fallback. Without Mongo configured, the
+    in-memory copy is the only thing that lets a value survive between
+    requests within this process - which /api/discover depends on, since it
+    never blocks a request on a fresh generation."""
     try:
-        await db[collection].update_one(
-            {"ticker": ticker},
-            {"$set": {"ticker": ticker, "data": data, "cachedAt": datetime.now(timezone.utc)}},
-            upsert=True,
-        )
+        doc = await db[collection].find_one({"key": key}, {"_id": 0})
+        if doc:
+            return doc
     except Exception:
-        logger.warning("cache write failed for %s/%s, continuing without cache", collection, ticker)
+        logger.warning("cache read failed for %s/%s, falling back to memory", collection, key)
+    return _memory_cache.get((collection, key))
+
+
+async def _cache_set(collection: str, key: str, data: dict) -> None:
+    doc = {"key": key, "data": data, "cachedAt": datetime.now(timezone.utc)}
+    _memory_cache[(collection, key)] = doc
+    try:
+        await db[collection].update_one({"key": key}, {"$set": doc}, upsert=True)
+    except Exception:
+        logger.warning("cache write failed for %s/%s, kept in memory only", collection, key)
 
 
 app = FastAPI(title="Stock Researcher API", lifespan=lifespan)
@@ -174,6 +182,39 @@ async def post_competitors(req: CompetitorsRequest):
             logger.warning("competitor ticker not found: %s", tk)
 
     return {"primary": primary, "competitors": competitors}
+
+
+_discover_lock = asyncio.Lock()
+
+
+async def _refresh_discover_cache():
+    if _discover_lock.locked():
+        return
+    async with _discover_lock:
+        try:
+            data = await discover.generate_discoveries()
+            await _cache_set("discover_cache", "latest", data)
+        except Exception:
+            logger.exception("background discover refresh failed")
+
+
+@api.get("/discover")
+async def get_discover():
+    """A fresh generation takes 1-2+ minutes (multiple web searches), far too
+    long to block a request on. Serve whatever's cached (even if stale) and
+    kick off a background refresh; the first-ever call with nothing cached
+    yet gets a "pending" response the frontend polls until it's ready."""
+    cached = await _cache_get("discover_cache", "latest")
+    if _fresh(cached, DISCOVER_CACHE_TTL_SECONDS):
+        return cached["data"]
+
+    if not _discover_lock.locked():
+        asyncio.create_task(_refresh_discover_cache())
+
+    if cached:
+        return cached["data"]
+
+    return {"opportunities": [], "generatedAt": None, "pending": True}
 
 
 app.include_router(api)

@@ -7,6 +7,7 @@ import ContextCatalysts from "./components/research/ContextCatalysts";
 import ValuationGrowth from "./components/research/ValuationGrowth";
 import CompetitorsRisks from "./components/research/CompetitorsRisks";
 import AnalystRatings from "./components/AnalystRatings";
+import Discover from "./components/Discover";
 import { getStock, postResearch } from "./lib/api";
 
 function SearchBar({ onSearch, loading }) {
@@ -124,11 +125,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {!stock && !loading && (
-        <div className="mx-auto max-w-md px-6 pb-24 text-center text-sm text-ink-500">
-          No stock loaded yet — search for a ticker above to get started.
-        </div>
-      )}
+      {!stock && !loading && <Discover onSelect={handleSearch} />}
     </div>
   );
 }
