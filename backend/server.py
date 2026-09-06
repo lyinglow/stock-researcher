@@ -25,7 +25,7 @@ DB_NAME = os.environ.get("DB_NAME", "stock_researcher")
 STOCK_CACHE_TTL_SECONDS = 60
 RESEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
 
-mongo_client = AsyncIOMotorClient(MONGO_URL)
+mongo_client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=1200)
 db = mongo_client[DB_NAME]
 
 
@@ -33,6 +33,27 @@ db = mongo_client[DB_NAME]
 async def lifespan(app: FastAPI):
     yield
     mongo_client.close()
+
+
+async def _cache_get(collection: str, ticker: str) -> Optional[dict]:
+    """Best-effort cache read. Caching is an optimization, not a dependency -
+    if Mongo is unreachable or unconfigured, callers just treat it as a miss."""
+    try:
+        return await db[collection].find_one({"ticker": ticker}, {"_id": 0})
+    except Exception:
+        logger.warning("cache read failed for %s/%s, continuing without cache", collection, ticker)
+        return None
+
+
+async def _cache_set(collection: str, ticker: str, data: dict) -> None:
+    try:
+        await db[collection].update_one(
+            {"ticker": ticker},
+            {"$set": {"ticker": ticker, "data": data, "cachedAt": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
+    except Exception:
+        logger.warning("cache write failed for %s/%s, continuing without cache", collection, ticker)
 
 
 app = FastAPI(title="Stock Researcher API", lifespan=lifespan)
@@ -61,7 +82,7 @@ def _fresh(doc: Optional[dict], ttl_seconds: int) -> bool:
 
 async def get_stock_snapshot(ticker: str) -> dict:
     ticker = ticker.upper().strip()
-    cached = await db.stock_cache.find_one({"ticker": ticker}, {"_id": 0})
+    cached = await _cache_get("stock_cache", ticker)
     if _fresh(cached, STOCK_CACHE_TTL_SECONDS):
         return cached["data"]
     try:
@@ -70,11 +91,7 @@ async def get_stock_snapshot(ticker: str) -> dict:
         if cached:
             return cached["data"]
         raise
-    await db.stock_cache.update_one(
-        {"ticker": ticker},
-        {"$set": {"ticker": ticker, "data": data, "cachedAt": datetime.now(timezone.utc)}},
-        upsert=True,
-    )
+    await _cache_set("stock_cache", ticker, data)
     return data
 
 
@@ -98,7 +115,7 @@ class ResearchRequest(BaseModel):
 @api.post("/research")
 async def post_research(req: ResearchRequest):
     ticker = req.ticker.upper().strip()
-    cached = await db.research_cache.find_one({"ticker": ticker}, {"_id": 0})
+    cached = await _cache_get("research_cache", ticker)
     if _fresh(cached, RESEARCH_CACHE_TTL_SECONDS):
         return cached["data"]
 
@@ -115,11 +132,7 @@ async def post_research(req: ResearchRequest):
             return cached["data"]
         raise HTTPException(status_code=502, detail="Research generation failed, please try again")
 
-    await db.research_cache.update_one(
-        {"ticker": ticker},
-        {"$set": {"ticker": ticker, "data": research, "cachedAt": datetime.now(timezone.utc)}},
-        upsert=True,
-    )
+    await _cache_set("research_cache", ticker, research)
     return research
 
 
@@ -134,7 +147,7 @@ async def post_competitors(req: CompetitorsRequest):
     competitor_tickers = [t.upper().strip() for t in (req.tickers or []) if t.strip()]
 
     if not competitor_tickers:
-        cached = await db.research_cache.find_one({"ticker": ticker}, {"_id": 0})
+        cached = await _cache_get("research_cache", ticker)
         if cached:
             competitor_tickers = cached["data"].get("competitor_tickers", [])
         if not competitor_tickers:
