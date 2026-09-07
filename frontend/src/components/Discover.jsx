@@ -97,7 +97,7 @@ export default function Discover({ onSelect }) {
     <section className="mx-auto w-full max-w-5xl px-6 pb-10" data-testid="discover-section">
       <div className="mb-4 flex items-center justify-center gap-2 text-ink-700">
         <Radar size={18} className="text-sky-600" />
-        <h2 className="font-display text-xl text-ink-900">Not sure what to search?</h2>
+        <h2 className="font-display text-xl text-ink-900">Latest Insight</h2>
         <Tooltip label="Companies that may be indirectly affected by recent business news through supply chain, customer, or competitor relationships. A lead to investigate, not a fact.">
           <span className="cursor-help text-xs text-ink-500">ⓘ</span>
         </Tooltip>

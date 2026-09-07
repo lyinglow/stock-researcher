@@ -111,6 +111,9 @@ async def get_stock(ticker: str):
         return await get_stock_snapshot(ticker)
     except yahoo.TickerNotFound:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker.upper()}' not found")
+    except Exception:
+        logger.exception("stock lookup failed for %s", ticker)
+        raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
 
 
 class ResearchRequest(BaseModel):
@@ -128,6 +131,9 @@ async def post_research(req: ResearchRequest):
         snapshot = await get_stock_snapshot(ticker)
     except yahoo.TickerNotFound:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found")
+    except Exception:
+        logger.exception("stock lookup failed for %s", ticker)
+        raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
 
     try:
         research = await llm_research.generate_research(ticker, snapshot)
@@ -166,15 +172,15 @@ async def post_competitors(req: CompetitorsRequest):
     primary = None
     try:
         primary = yahoo.fetch_competitor_snapshot(ticker)
-    except yahoo.TickerNotFound:
-        pass
+    except Exception:
+        logger.exception("failed to fetch primary snapshot for %s", ticker)
 
     competitors = []
     for tk in competitor_tickers:
         try:
             competitors.append(yahoo.fetch_competitor_snapshot(tk))
-        except yahoo.TickerNotFound:
-            logger.warning("competitor ticker not found: %s", tk)
+        except Exception:
+            logger.warning("competitor lookup failed for %s", tk)
 
     return {"primary": primary, "competitors": competitors}
 

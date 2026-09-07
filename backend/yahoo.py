@@ -1,9 +1,10 @@
 """Thin wrapper around yfinance.
 
-yfinance's default session uses curl_cffi with browser TLS impersonation,
-which some network intermediaries reset mid-handshake. Handing yfinance a
-plain requests.Session with a normal browser User-Agent sidesteps that and
-still gets cookie/crumb auth working against Yahoo's endpoints.
+Yahoo requires a cookie + crumb obtained through a browser-like TLS
+handshake before it'll answer quoteSummary requests; a plain
+requests.Session gets a 401 from that check. yfinance's default session
+(curl_cffi with Chrome impersonation) passes it, so we leave the session
+alone and let yfinance manage it.
 """
 import logging
 from datetime import datetime, timezone
@@ -13,14 +14,6 @@ import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
-_SESSION = requests.Session()
-_SESSION.headers.update({
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    )
-})
-
 _FX_CACHE: dict[str, float] = {}
 
 
@@ -29,7 +22,7 @@ class TickerNotFound(Exception):
 
 
 def get_ticker(symbol: str) -> yf.Ticker:
-    return yf.Ticker(symbol.upper().strip(), session=_SESSION)
+    return yf.Ticker(symbol.upper().strip())
 
 
 def _num(info: dict, *keys, default=None):
