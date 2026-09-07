@@ -52,38 +52,61 @@ export default function App() {
   const [research, setResearch] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [researchError, setResearchError] = useState(null);
+
+  const loadResearch = useCallback((ticker) => {
+    setResearchError(null);
+    postResearch(ticker)
+      .then(setResearch)
+      .catch((e) => setResearchError(e.message || "Couldn't load the research brief"));
+  }, []);
 
   const handleSearch = useCallback(async (ticker) => {
     setLoading(true);
     setError(null);
     setResearch(null);
+    setResearchError(null);
     try {
       const stockData = await getStock(ticker);
       setStock(stockData);
-      postResearch(ticker)
-        .then(setResearch)
-        .catch((e) => console.error("research failed", e));
+      loadResearch(ticker);
     } catch (e) {
       setStock(null);
       setError(e.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
+  }, [loadResearch]);
+
+  const goHome = useCallback(() => {
+    setStock(null);
+    setResearch(null);
+    setError(null);
+    setResearchError(null);
   }, []);
 
   return (
     <div className="min-h-screen bg-butter-50">
       <header className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 pb-10 pt-16 text-center">
-        <div className="flex items-center gap-2 text-sky-600">
+        <button
+          type="button"
+          onClick={goHome}
+          data-testid="home-link"
+          className="flex items-center gap-2 text-sky-600 transition hover:text-sky-700"
+        >
           <TrendingUp size={22} />
           <span className="text-sm font-semibold uppercase tracking-widest">Stock Researcher</span>
-        </div>
-        <h1 className="font-display text-4xl font-semibold text-ink-900 md:text-5xl">
-          Look up any stock.
-        </h1>
-        <p className="max-w-md text-ink-700">
-          Type a ticker. See what it's worth, how it's doing, and why — in plain language.
-        </p>
+        </button>
+        {!stock && (
+          <>
+            <h1 className="font-display text-4xl font-semibold text-ink-900 md:text-5xl">
+              Look up any stock.
+            </h1>
+            <p className="max-w-md text-ink-700">
+              Type a ticker. See what it's worth, how it's doing, and why — in plain language.
+            </p>
+          </>
+        )}
         <SearchBar onSearch={handleSearch} loading={loading} />
         {error && (
           <p className="text-sm font-medium text-rose-600" data-testid="stock-error">
@@ -113,6 +136,24 @@ export default function App() {
 
             <KeyDataPanel stock={stock} />
             <PriceChart stock={stock} />
+
+            {researchError && !research && (
+              <div
+                className="flex items-center justify-between gap-4 rounded-xl border border-rose-200
+                  bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                data-testid="research-error"
+              >
+                <span>{researchError}</span>
+                <button
+                  type="button"
+                  onClick={() => loadResearch(stock.ticker)}
+                  className="shrink-0 rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white
+                    transition hover:bg-rose-700"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <ContextCatalysts stock={stock} research={research} />
