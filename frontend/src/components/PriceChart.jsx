@@ -34,6 +34,8 @@ export default function PriceChart({ stock }) {
     return out;
   }, [data]);
 
+  if (data.length === 0) return null;
+
   return (
     <Card testId="price-chart" delay={0.05}>
       <div className="mb-4 flex items-center justify-between">

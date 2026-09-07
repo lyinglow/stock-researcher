@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 import discover
 import llm_research
-import yahoo
+import finnhub_client
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -92,10 +92,7 @@ async def get_stock_snapshot(ticker: str) -> dict:
     cached = await _cache_get("stock_cache", ticker, STOCK_CACHE_TTL_SECONDS)
     if cached:
         return cached
-    try:
-        data = yahoo.fetch_snapshot(ticker)
-    except yahoo.TickerNotFound:
-        raise
+    data = finnhub_client.fetch_snapshot(ticker)
     await _cache_set("stock_cache", ticker, data, STOCK_CACHE_TTL_SECONDS)
     return data
 
@@ -109,7 +106,7 @@ async def health():
 async def get_stock(ticker: str):
     try:
         return await get_stock_snapshot(ticker)
-    except yahoo.TickerNotFound:
+    except finnhub_client.TickerNotFound:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker.upper()}' not found")
     except Exception:
         logger.exception("stock lookup failed for %s", ticker)
@@ -129,7 +126,7 @@ async def post_research(req: ResearchRequest):
 
     try:
         snapshot = await get_stock_snapshot(ticker)
-    except yahoo.TickerNotFound:
+    except finnhub_client.TickerNotFound:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found")
     except Exception:
         logger.exception("stock lookup failed for %s", ticker)
@@ -171,14 +168,14 @@ async def post_competitors(req: CompetitorsRequest):
 
     primary = None
     try:
-        primary = yahoo.fetch_competitor_snapshot(ticker)
+        primary = finnhub_client.fetch_competitor_snapshot(ticker)
     except Exception:
         logger.exception("failed to fetch primary snapshot for %s", ticker)
 
     competitors = []
     for tk in competitor_tickers:
         try:
-            competitors.append(yahoo.fetch_competitor_snapshot(tk))
+            competitors.append(finnhub_client.fetch_competitor_snapshot(tk))
         except Exception:
             logger.warning("competitor lookup failed for %s", tk)
 
