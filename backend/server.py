@@ -1,15 +1,15 @@
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
+import redis.asyncio as redis
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
 import discover
@@ -22,46 +22,56 @@ load_dotenv(ROOT_DIR / ".env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "stock_researcher")
+REDIS_URL = os.environ.get("REDIS_URL", "")
 STOCK_CACHE_TTL_SECONDS = 60
 RESEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
 DISCOVER_CACHE_TTL_SECONDS = 60 * 60 * 4
 
-mongo_client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=1200)
-db = mongo_client[DB_NAME]
+redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    mongo_client.close()
+    if redis_client:
+        await redis_client.aclose()
 
 
 _memory_cache: dict = {}
 
 
-async def _cache_get(collection: str, key: str) -> Optional[dict]:
-    """Mongo read with an in-memory fallback. Without Mongo configured, the
-    in-memory copy is the only thing that lets a value survive between
-    requests within this process - which /api/discover depends on, since it
-    never blocks a request on a fresh generation."""
-    try:
-        doc = await db[collection].find_one({"key": key}, {"_id": 0})
-        if doc:
-            return doc
-    except Exception:
-        logger.warning("cache read failed for %s/%s, falling back to memory", collection, key)
-    return _memory_cache.get((collection, key))
+async def _cache_get(collection: str, key: str, ttl_seconds: int) -> Optional[dict]:
+    """Redis is the real store, since it stays warm across the free web
+    service's sleep/restart cycles - the in-memory dict is only a fallback
+    for local dev when REDIS_URL isn't set. /api/discover depends on this
+    surviving between requests, since it never blocks one on a fresh
+    generation."""
+    cache_key = f"{collection}:{key}"
+    if redis_client:
+        try:
+            raw = await redis_client.get(cache_key)
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            logger.warning("redis read failed for %s, falling back to memory", cache_key)
+    entry = _memory_cache.get(cache_key)
+    if entry and entry["fetchedAt"] + ttl_seconds > _now():
+        return entry["data"]
+    return None
 
 
-async def _cache_set(collection: str, key: str, data: dict) -> None:
-    doc = {"key": key, "data": data, "cachedAt": datetime.now(timezone.utc)}
-    _memory_cache[(collection, key)] = doc
-    try:
-        await db[collection].update_one({"key": key}, {"$set": doc}, upsert=True)
-    except Exception:
-        logger.warning("cache write failed for %s/%s, kept in memory only", collection, key)
+async def _cache_set(collection: str, key: str, data: dict, ttl_seconds: int) -> None:
+    cache_key = f"{collection}:{key}"
+    _memory_cache[cache_key] = {"data": data, "fetchedAt": _now()}
+    if redis_client:
+        try:
+            await redis_client.set(cache_key, json.dumps(data), ex=ttl_seconds)
+        except Exception:
+            logger.warning("redis write failed for %s, kept in memory only", cache_key)
+
+
+def _now() -> float:
+    return asyncio.get_event_loop().time()
 
 
 app = FastAPI(title="Stock Researcher API", lifespan=lifespan)
@@ -77,29 +87,16 @@ app.add_middleware(
 )
 
 
-def _fresh(doc: Optional[dict], ttl_seconds: int) -> bool:
-    if not doc or "cachedAt" not in doc:
-        return False
-    cached_at = doc["cachedAt"]
-    if isinstance(cached_at, str):
-        cached_at = datetime.fromisoformat(cached_at)
-    if cached_at.tzinfo is None:
-        cached_at = cached_at.replace(tzinfo=timezone.utc)
-    return (datetime.now(timezone.utc) - cached_at).total_seconds() < ttl_seconds
-
-
 async def get_stock_snapshot(ticker: str) -> dict:
     ticker = ticker.upper().strip()
-    cached = await _cache_get("stock_cache", ticker)
-    if _fresh(cached, STOCK_CACHE_TTL_SECONDS):
-        return cached["data"]
+    cached = await _cache_get("stock_cache", ticker, STOCK_CACHE_TTL_SECONDS)
+    if cached:
+        return cached
     try:
         data = yahoo.fetch_snapshot(ticker)
     except yahoo.TickerNotFound:
-        if cached:
-            return cached["data"]
         raise
-    await _cache_set("stock_cache", ticker, data)
+    await _cache_set("stock_cache", ticker, data, STOCK_CACHE_TTL_SECONDS)
     return data
 
 
@@ -123,9 +120,9 @@ class ResearchRequest(BaseModel):
 @api.post("/research")
 async def post_research(req: ResearchRequest):
     ticker = req.ticker.upper().strip()
-    cached = await _cache_get("research_cache", ticker)
-    if _fresh(cached, RESEARCH_CACHE_TTL_SECONDS):
-        return cached["data"]
+    cached = await _cache_get("research_cache", ticker, RESEARCH_CACHE_TTL_SECONDS)
+    if cached:
+        return cached
 
     try:
         snapshot = await get_stock_snapshot(ticker)
@@ -136,11 +133,9 @@ async def post_research(req: ResearchRequest):
         research = await llm_research.generate_research(ticker, snapshot)
     except Exception:
         logger.exception("research generation failed for %s", ticker)
-        if cached:
-            return cached["data"]
         raise HTTPException(status_code=502, detail="Research generation failed, please try again")
 
-    await _cache_set("research_cache", ticker, research)
+    await _cache_set("research_cache", ticker, research, RESEARCH_CACHE_TTL_SECONDS)
     return research
 
 
@@ -155,9 +150,9 @@ async def post_competitors(req: CompetitorsRequest):
     competitor_tickers = [t.upper().strip() for t in (req.tickers or []) if t.strip()]
 
     if not competitor_tickers:
-        cached = await _cache_get("research_cache", ticker)
+        cached = await _cache_get("research_cache", ticker, RESEARCH_CACHE_TTL_SECONDS)
         if cached:
-            competitor_tickers = cached["data"].get("competitor_tickers", [])
+            competitor_tickers = cached.get("competitor_tickers", [])
         if not competitor_tickers:
             try:
                 snapshot = await get_stock_snapshot(ticker)
@@ -195,7 +190,7 @@ async def _refresh_discover_cache():
         data = await asyncio.wait_for(
             discover.generate_discoveries(), timeout=DISCOVER_GENERATION_TIMEOUT_SECONDS
         )
-        await _cache_set("discover_cache", "latest", data)
+        await _cache_set("discover_cache", "latest", data, DISCOVER_CACHE_TTL_SECONDS)
     except asyncio.TimeoutError:
         logger.warning(
             "discover generation exceeded %ss, aborting - will retry on next request",
@@ -210,24 +205,21 @@ async def _refresh_discover_cache():
 @api.get("/discover")
 async def get_discover():
     """A fresh generation takes 1-2+ minutes (multiple web searches), far too
-    long to block a request on. Serve whatever's cached (even if stale) and
-    kick off a background refresh; the first-ever call with nothing cached
-    yet gets a "pending" response the frontend polls until it's ready.
+    long to block a request on. Serve the cached result when there is one,
+    otherwise kick off a background refresh and return a "pending" response
+    the frontend polls until it's ready.
 
     The refreshing flag is checked and set synchronously with no `await`
     between them, so two requests arriving back to back can't both slip
     past the check and launch duplicate (double-cost) generations."""
     global _discover_refreshing
-    cached = await _cache_get("discover_cache", "latest")
-    if _fresh(cached, DISCOVER_CACHE_TTL_SECONDS):
-        return cached["data"]
+    cached = await _cache_get("discover_cache", "latest", DISCOVER_CACHE_TTL_SECONDS)
+    if cached:
+        return cached
 
     if not _discover_refreshing:
         _discover_refreshing = True
         asyncio.create_task(_refresh_discover_cache())
-
-    if cached:
-        return cached["data"]
 
     return {"opportunities": [], "generatedAt": None, "pending": True}
 

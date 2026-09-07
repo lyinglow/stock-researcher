@@ -7,9 +7,7 @@ services:
     buildCommand: "pip install -r requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/"
     startCommand: "uvicorn server:app --host 0.0.0.0 --port $PORT"
     envVars:
-      - key: DB_NAME
-        value: stock_researcher
-      - key: MONGO_URL
+      - key: REDIS_URL
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
