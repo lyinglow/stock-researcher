@@ -91,9 +91,10 @@ def fetch_snapshot(symbol: str) -> dict:
     if not price:
         raise TickerNotFound(symbol)
 
+    # profile2 is company-profile data and comes back empty ({}) for ETFs
+    # and other funds even when the ticker is perfectly valid - the price
+    # check above is what actually tells a real ticker from a bogus one.
     profile = _fetch_profile(symbol)
-    if not profile.get("name"):
-        raise TickerNotFound(symbol)
 
     metric = _fetch_metrics(symbol)
     analyst = fetch_analyst_counts(symbol)
