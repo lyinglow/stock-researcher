@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, TrendingUp, Loader2 } from "lucide-react";
+import { Search, TrendingUp, Loader2, Bookmark } from "lucide-react";
 import KeyDataPanel from "./components/KeyDataPanel";
 import PriceChart from "./components/PriceChart";
 import ContextCatalysts from "./components/research/ContextCatalysts";
@@ -8,7 +8,9 @@ import ValuationGrowth from "./components/research/ValuationGrowth";
 import CompetitorsRisks from "./components/research/CompetitorsRisks";
 import AnalystRatings from "./components/AnalystRatings";
 import Discover from "./components/Discover";
+import SavedFunds from "./components/SavedFunds";
 import { getStock, postResearch } from "./lib/api";
+import { getSaved, toggleSaved, removeSaved } from "./lib/saved";
 
 function SearchBar({ onSearch, loading }) {
   const [value, setValue] = useState("");
@@ -53,6 +55,21 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [researchError, setResearchError] = useState(null);
+  const [saved, setSaved] = useState(getSaved);
+
+  const isStockSaved = useMemo(
+    () => !!stock && saved.some((s) => s.ticker === stock.ticker),
+    [saved, stock]
+  );
+
+  const handleToggleSave = useCallback(() => {
+    if (!stock) return;
+    setSaved(toggleSaved(stock.ticker, stock.name));
+  }, [stock]);
+
+  const handleRemoveSaved = useCallback((ticker) => {
+    setSaved(removeSaved(ticker));
+  }, []);
 
   const loadResearch = useCallback((ticker) => {
     setResearchError(null);
@@ -132,6 +149,21 @@ export default function App() {
               <span className="rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
                 {stock.ticker}
               </span>
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                data-testid="save-btn"
+                aria-label={isStockSaved ? "Remove from saved" : "Save this fund"}
+                className={`ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs
+                  font-semibold transition ${
+                    isStockSaved
+                      ? "border-sky-400 bg-sky-50 text-sky-700"
+                      : "border-butter-200 bg-white/80 text-ink-500 hover:text-sky-600"
+                  }`}
+              >
+                <Bookmark size={14} fill={isStockSaved ? "currentColor" : "none"} />
+                {isStockSaved ? "Saved" : "Save"}
+              </button>
             </div>
 
             <KeyDataPanel stock={stock} />
@@ -166,7 +198,12 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {!stock && !loading && <Discover onSelect={handleSearch} />}
+      {!stock && !loading && (
+        <>
+          <SavedFunds saved={saved} onSelect={handleSearch} onRemove={handleRemoveSaved} />
+          <Discover onSelect={handleSearch} />
+        </>
+      )}
     </div>
   );
 }
