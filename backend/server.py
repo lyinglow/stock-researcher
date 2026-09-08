@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import discover
 import llm_research
 import finnhub_client
+import themes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -26,6 +27,8 @@ REDIS_URL = os.environ.get("REDIS_URL", "")
 STOCK_CACHE_TTL_SECONDS = 60
 RESEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
 DISCOVER_CACHE_TTL_SECONDS = 60 * 60 * 4
+THEMES_CACHE_TTL_SECONDS = 60 * 60 * 8
+BACKGROUND_GENERATION_TIMEOUT_SECONDS = 240
 
 redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
 
@@ -182,49 +185,64 @@ async def post_competitors(req: CompetitorsRequest):
     return {"primary": primary, "competitors": competitors}
 
 
-DISCOVER_GENERATION_TIMEOUT_SECONDS = 240
-
-_discover_refreshing = False
+_background_refreshing: dict = {}
 
 
-async def _refresh_discover_cache():
-    global _discover_refreshing
+async def _refresh_background_cache(collection: str, key: str, ttl_seconds: int, generate) -> None:
+    flag_key = f"{collection}:{key}"
     try:
-        data = await asyncio.wait_for(
-            discover.generate_discoveries(), timeout=DISCOVER_GENERATION_TIMEOUT_SECONDS
-        )
-        await _cache_set("discover_cache", "latest", data, DISCOVER_CACHE_TTL_SECONDS)
+        data = await asyncio.wait_for(generate(), timeout=BACKGROUND_GENERATION_TIMEOUT_SECONDS)
+        await _cache_set(collection, key, data, ttl_seconds)
     except asyncio.TimeoutError:
         logger.warning(
-            "discover generation exceeded %ss, aborting - will retry on next request",
-            DISCOVER_GENERATION_TIMEOUT_SECONDS,
+            "%s generation exceeded %ss, aborting - will retry on next request",
+            flag_key, BACKGROUND_GENERATION_TIMEOUT_SECONDS,
         )
     except Exception:
-        logger.exception("background discover refresh failed")
+        logger.exception("background %s refresh failed", flag_key)
     finally:
-        _discover_refreshing = False
+        _background_refreshing[flag_key] = False
 
 
-@api.get("/discover")
-async def get_discover():
+async def _get_background_cached(collection: str, key: str, ttl_seconds: int, generate) -> Optional[dict]:
     """A fresh generation takes 1-2+ minutes (multiple web searches), far too
     long to block a request on. Serve the cached result when there is one,
-    otherwise kick off a background refresh and return a "pending" response
-    the frontend polls until it's ready.
+    otherwise kick off a background refresh and return None so the caller
+    can respond "pending" for the frontend to poll until it's ready.
 
     The refreshing flag is checked and set synchronously with no `await`
     between them, so two requests arriving back to back can't both slip
     past the check and launch duplicate (double-cost) generations."""
-    global _discover_refreshing
-    cached = await _cache_get("discover_cache", "latest", DISCOVER_CACHE_TTL_SECONDS)
+    flag_key = f"{collection}:{key}"
+    cached = await _cache_get(collection, key, ttl_seconds)
     if cached:
         return cached
 
-    if not _discover_refreshing:
-        _discover_refreshing = True
-        asyncio.create_task(_refresh_discover_cache())
+    if not _background_refreshing.get(flag_key):
+        _background_refreshing[flag_key] = True
+        asyncio.create_task(_refresh_background_cache(collection, key, ttl_seconds, generate))
 
+    return None
+
+
+@api.get("/discover")
+async def get_discover():
+    cached = await _get_background_cached(
+        "discover_cache", "latest", DISCOVER_CACHE_TTL_SECONDS, discover.generate_discoveries
+    )
+    if cached:
+        return cached
     return {"opportunities": [], "generatedAt": None, "pending": True}
+
+
+@api.get("/themes")
+async def get_themes():
+    cached = await _get_background_cached(
+        "themes_cache", "latest", THEMES_CACHE_TTL_SECONDS, themes.generate_themes
+    )
+    if cached:
+        return cached
+    return {"themes": [], "generatedAt": None, "pending": True}
 
 
 app.include_router(api)

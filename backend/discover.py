@@ -28,8 +28,8 @@ action against a major company.
 For each story worth surfacing, identify ONE other publicly traded company
 (not the one in the headline) that is plausibly exposed because it is a
 supplier to, customer of, or direct competitor of the company in the news.
-Prefer large, liquid, easily-traded tickers on major US or international
-exchanges that Yahoo Finance covers.
+Prefer tickers that are US-listed (US companies or US-listed shares of
+foreign companies) since that's what this app can look up.
 
 Return 5 to 8 of these, ranked by how timely and significant the opportunity
 is. Return ONLY a JSON object with exactly this shape:
@@ -45,7 +45,7 @@ is. Return ONLY a JSON object with exactly this shape:
   ]
 }
 rating is how urgent/significant the opportunity looks, 5 being highest.
-ticker must be a real, valid Yahoo Finance ticker symbol."""
+ticker must be a real, valid, US-listed ticker symbol."""
 
 
 async def generate_discoveries() -> dict:

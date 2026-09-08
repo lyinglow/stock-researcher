@@ -8,6 +8,7 @@ import ValuationGrowth from "./components/research/ValuationGrowth";
 import CompetitorsRisks from "./components/research/CompetitorsRisks";
 import AnalystRatings from "./components/AnalystRatings";
 import Discover from "./components/Discover";
+import InvestmentThemes from "./components/InvestmentThemes";
 import SavedFunds from "./components/SavedFunds";
 import { getStock, postResearch } from "./lib/api";
 import { getSaved, toggleSaved, removeSaved } from "./lib/saved";
@@ -201,6 +202,7 @@ export default function App() {
       {!stock && !loading && (
         <>
           <SavedFunds saved={saved} onSelect={handleSearch} onRemove={handleRemoveSaved} />
+          <InvestmentThemes onSelect={handleSearch} />
           <Discover onSelect={handleSearch} />
         </>
       )}

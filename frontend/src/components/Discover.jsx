@@ -1,25 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { motion } from "framer-motion";
-import { Radar } from "lucide-react";
+import { Radar, Loader2 } from "lucide-react";
 import Tooltip from "./Tooltip";
+import RatingBars from "./RatingBars";
+import usePolledFeed from "../lib/usePolledFeed";
 import { getDiscover } from "../lib/api";
-
-const POLL_MS = 10000;
-const MAX_POLLS = 30; // web search generation can take several minutes
-
-function RatingBars({ rating }) {
-  return (
-    <div className="flex items-end gap-0.5" aria-label={`Opportunity rating ${rating} of 5`}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <span
-          key={n}
-          className={`w-1.5 rounded-sm ${n <= rating ? "bg-sky-500" : "bg-butter-200"}`}
-          style={{ height: `${8 + n * 3}px` }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function DiscoverCard({ opp, onSelect, delay }) {
   return (
@@ -51,45 +36,12 @@ function DiscoverCard({ opp, onSelect, delay }) {
 }
 
 export default function Discover({ onSelect }) {
-  const [data, setData] = useState(null);
-  const [failed, setFailed] = useState(false);
-  const pollCount = useRef(0);
-  const timerRef = useRef(null);
+  const { data, loading, failed } = usePolledFeed(getDiscover);
 
-  useEffect(() => {
-    let cancelled = false;
+  if (failed) return null;
 
-    async function load() {
-      try {
-        const result = await getDiscover();
-        if (cancelled) return;
-        if (result.pending) {
-          if (pollCount.current < MAX_POLLS) {
-            setData(result);
-            pollCount.current += 1;
-            timerRef.current = setTimeout(load, POLL_MS);
-          } else {
-            setFailed(true); // gave up waiting; hide the section rather than stay stuck
-          }
-        } else {
-          setData(result);
-        }
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    }
-
-    load();
-    return () => {
-      cancelled = true;
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
-
-  if (failed || !data) return null;
-
-  const opportunities = data.opportunities || [];
-  const isPending = data.pending && opportunities.length === 0;
+  const opportunities = data?.opportunities || [];
+  const isPending = loading && opportunities.length === 0;
 
   if (!isPending && opportunities.length === 0) return null;
 
@@ -104,7 +56,11 @@ export default function Discover({ onSelect }) {
       </div>
 
       {isPending ? (
-        <div className="text-center text-sm text-ink-500" data-testid="discover-pending">
+        <div
+          className="flex items-center justify-center gap-2 text-center text-sm text-ink-500"
+          data-testid="discover-pending"
+        >
+          <Loader2 size={14} className="animate-spin" />
           Scanning today's business news for supply chain opportunities…
         </div>
       ) : (

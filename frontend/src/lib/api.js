@@ -48,4 +48,8 @@ export function getDiscover() {
   return request(`/discover`);
 }
 
+export function getThemes() {
+  return request(`/themes`);
+}
+
 export { ApiError };
