@@ -6,7 +6,7 @@ import RatingBars from "./RatingBars";
 import usePolledFeed, { formatElapsed } from "../lib/usePolledFeed";
 import { getThemes } from "../lib/api";
 
-function ThemeCard({ theme, onSelect, delay }) {
+export function ThemeCard({ theme, onSelect, delay }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}

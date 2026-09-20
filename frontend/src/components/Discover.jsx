@@ -6,7 +6,7 @@ import RatingBars from "./RatingBars";
 import usePolledFeed, { formatElapsed } from "../lib/usePolledFeed";
 import { getDiscover } from "../lib/api";
 
-function DiscoverCard({ opp, onSelect, delay }) {
+export function DiscoverCard({ opp, onSelect, delay }) {
   return (
     <motion.button
       type="button"
