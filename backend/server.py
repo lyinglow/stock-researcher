@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -43,12 +44,15 @@ async def lifespan(app: FastAPI):
 _memory_cache: dict = {}
 
 
-async def _cache_get(collection: str, key: str, ttl_seconds: int) -> Optional[dict]:
+async def _cache_get(collection: str, key: str, ttl_seconds: Optional[int]) -> Optional[dict]:
     """Redis is the real store, since it stays warm across the free web
     service's sleep/restart cycles - the in-memory dict is only a fallback
     for local dev when REDIS_URL isn't set. /api/discover depends on this
     surviving between requests, since it never blocks one on a fresh
-    generation."""
+    generation. ttl_seconds=None means the entry never expires (used for
+    permanent history records), which only matters for the in-memory
+    fallback - Redis entries written without an expiry already live
+    forever there."""
     cache_key = f"{collection}:{key}"
     if redis_client:
         try:
@@ -58,17 +62,20 @@ async def _cache_get(collection: str, key: str, ttl_seconds: int) -> Optional[di
         except Exception:
             logger.warning("redis read failed for %s, falling back to memory", cache_key)
     entry = _memory_cache.get(cache_key)
-    if entry and entry["fetchedAt"] + ttl_seconds > _now():
+    if entry and (ttl_seconds is None or entry["fetchedAt"] + ttl_seconds > _now()):
         return entry["data"]
     return None
 
 
-async def _cache_set(collection: str, key: str, data: dict, ttl_seconds: int) -> None:
+async def _cache_set(collection: str, key: str, data: dict, ttl_seconds: Optional[int]) -> None:
     cache_key = f"{collection}:{key}"
     _memory_cache[cache_key] = {"data": data, "fetchedAt": _now()}
     if redis_client:
         try:
-            await redis_client.set(cache_key, json.dumps(data), ex=ttl_seconds)
+            if ttl_seconds is None:
+                await redis_client.set(cache_key, json.dumps(data))
+            else:
+                await redis_client.set(cache_key, json.dumps(data), ex=ttl_seconds)
         except Exception:
             logger.warning("redis write failed for %s, kept in memory only", cache_key)
 
@@ -188,11 +195,38 @@ async def post_competitors(req: CompetitorsRequest):
 _background_refreshing: dict = {}
 
 
+async def _record_history(collection: str, data: dict) -> None:
+    """Stores a permanent, dated snapshot alongside the rolling "latest"
+    cache, so a day's picks aren't lost once the cache TTL rolls it over -
+    letting the frontend show what came up over time instead of only ever
+    seeing the most recent scan."""
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    await _cache_set(f"{collection}_history", date_str, data, None)
+
+    index = await _cache_get("history_index", collection, None) or []
+    if date_str not in index:
+        index.append(date_str)
+        index.sort()
+        await _cache_set("history_index", collection, index, None)
+
+
+async def _get_history(collection: str, days: int) -> dict:
+    index = await _cache_get("history_index", collection, None) or []
+    dates = sorted(index, reverse=True)[:days]
+    entries = []
+    for date_str in dates:
+        data = await _cache_get(f"{collection}_history", date_str, None)
+        if data:
+            entries.append({"date": date_str, **data})
+    return {"days": entries}
+
+
 async def _refresh_background_cache(collection: str, key: str, ttl_seconds: int, generate) -> None:
     flag_key = f"{collection}:{key}"
     try:
         data = await asyncio.wait_for(generate(), timeout=BACKGROUND_GENERATION_TIMEOUT_SECONDS)
         await _cache_set(collection, key, data, ttl_seconds)
+        await _record_history(collection, data)
     except asyncio.TimeoutError:
         logger.warning(
             "%s generation exceeded %ss, aborting - will retry on next request",
@@ -235,6 +269,11 @@ async def get_discover():
     return {"opportunities": [], "generatedAt": None, "pending": True}
 
 
+@api.get("/discover/history")
+async def get_discover_history(days: int = 30):
+    return await _get_history("discover_cache", days)
+
+
 @api.get("/themes")
 async def get_themes():
     cached = await _get_background_cached(
@@ -243,6 +282,11 @@ async def get_themes():
     if cached:
         return cached
     return {"themes": [], "generatedAt": None, "pending": True}
+
+
+@api.get("/themes/history")
+async def get_themes_history(days: int = 30):
+    return await _get_history("themes_cache", days)
 
 
 app.include_router(api)

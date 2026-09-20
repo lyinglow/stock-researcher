@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, TrendingUp, Loader2, Bookmark } from "lucide-react";
+import { Search, TrendingUp, ArrowLeft, Loader2, Bookmark } from "lucide-react";
 import KeyDataPanel from "./components/KeyDataPanel";
 import PriceChart from "./components/PriceChart";
 import ContextCatalysts from "./components/research/ContextCatalysts";
@@ -9,6 +9,7 @@ import CompetitorsRisks from "./components/research/CompetitorsRisks";
 import AnalystRatings from "./components/AnalystRatings";
 import Discover from "./components/Discover";
 import InvestmentThemes from "./components/InvestmentThemes";
+import InsightArchive from "./components/InsightArchive";
 import SavedFunds from "./components/SavedFunds";
 import { getStock, postResearch } from "./lib/api";
 import { getSaved, toggleSaved, removeSaved } from "./lib/saved";
@@ -56,6 +57,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [researchError, setResearchError] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
   const [saved, setSaved] = useState(getSaved);
 
   const isStockSaved = useMemo(
@@ -101,6 +103,7 @@ export default function App() {
     setResearch(null);
     setError(null);
     setResearchError(null);
+    setShowArchive(false);
   }, []);
 
   return (
@@ -112,10 +115,12 @@ export default function App() {
           data-testid="home-link"
           className="flex items-center gap-2 text-sky-600 transition hover:text-sky-700"
         >
-          <TrendingUp size={22} />
-          <span className="text-sm font-semibold uppercase tracking-widest">Stock Researcher</span>
+          {stock || showArchive ? <ArrowLeft size={20} /> : <TrendingUp size={22} />}
+          <span className="text-sm font-semibold uppercase tracking-widest">
+            {stock || showArchive ? "Back" : "Stock Researcher"}
+          </span>
         </button>
-        {!stock && (
+        {!stock && !showArchive && (
           <>
             <h1 className="font-display text-4xl font-semibold text-ink-900 md:text-5xl">
               Look up any stock.
@@ -125,11 +130,22 @@ export default function App() {
             </p>
           </>
         )}
-        <SearchBar onSearch={handleSearch} loading={loading} />
+        {!showArchive && <SearchBar onSearch={handleSearch} loading={loading} />}
         {error && (
           <p className="text-sm font-medium text-rose-600" data-testid="stock-error">
             {error}
           </p>
+        )}
+        {!stock && !showArchive && (
+          <button
+            type="button"
+            onClick={() => setShowArchive(true)}
+            data-testid="archive-link"
+            className="text-xs font-medium text-ink-500 underline decoration-dotted underline-offset-4
+              transition hover:text-sky-600"
+          >
+            See past picks
+          </button>
         )}
       </header>
 
@@ -199,7 +215,9 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {!stock && !loading && (
+      {!stock && !loading && showArchive && <InsightArchive onSelect={handleSearch} />}
+
+      {!stock && !loading && !showArchive && (
         <>
           <SavedFunds saved={saved} onSelect={handleSearch} onRemove={handleRemoveSaved} />
           <InvestmentThemes onSelect={handleSearch} />

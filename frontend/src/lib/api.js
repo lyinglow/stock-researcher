@@ -52,4 +52,12 @@ export function getThemes() {
   return request(`/themes`);
 }
 
+export function getDiscoverHistory() {
+  return request(`/discover/history`);
+}
+
+export function getThemesHistory() {
+  return request(`/themes/history`);
+}
+
 export { ApiError };
