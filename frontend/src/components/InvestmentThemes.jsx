@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Compass, Loader2 } from "lucide-react";
 import Tooltip from "./Tooltip";
 import RatingBars from "./RatingBars";
-import usePolledFeed from "../lib/usePolledFeed";
+import usePolledFeed, { formatElapsed } from "../lib/usePolledFeed";
 import { getThemes } from "../lib/api";
 
 function ThemeCard({ theme, onSelect, delay }) {
@@ -44,7 +44,7 @@ function ThemeCard({ theme, onSelect, delay }) {
 }
 
 export default function InvestmentThemes({ onSelect }) {
-  const { data, loading, failed } = usePolledFeed(getThemes);
+  const { data, loading, failed, elapsed } = usePolledFeed(getThemes);
 
   if (failed) return null;
 
@@ -70,6 +70,7 @@ export default function InvestmentThemes({ onSelect }) {
         >
           <Loader2 size={14} className="animate-spin" />
           Scanning news and investor discussion for emerging themes…
+          <span className="tabular-nums text-ink-400">{formatElapsed(elapsed)}</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

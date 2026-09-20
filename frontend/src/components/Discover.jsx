@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Radar, Loader2 } from "lucide-react";
 import Tooltip from "./Tooltip";
 import RatingBars from "./RatingBars";
-import usePolledFeed from "../lib/usePolledFeed";
+import usePolledFeed, { formatElapsed } from "../lib/usePolledFeed";
 import { getDiscover } from "../lib/api";
 
 function DiscoverCard({ opp, onSelect, delay }) {
@@ -36,7 +36,7 @@ function DiscoverCard({ opp, onSelect, delay }) {
 }
 
 export default function Discover({ onSelect }) {
-  const { data, loading, failed } = usePolledFeed(getDiscover);
+  const { data, loading, failed, elapsed } = usePolledFeed(getDiscover);
 
   if (failed) return null;
 
@@ -62,6 +62,7 @@ export default function Discover({ onSelect }) {
         >
           <Loader2 size={14} className="animate-spin" />
           Scanning today's business news for supply chain opportunities…
+          <span className="tabular-nums text-ink-400">{formatElapsed(elapsed)}</span>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
