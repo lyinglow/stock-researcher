@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const POLL_MS = 10000;
-const MAX_POLLS = 30; // web search generation can take several minutes
+const MAX_POLLS = 42; // web search generation can take several minutes, longer for themes
 
 /** Polls a background-generated feed (e.g. GET /api/discover, /api/themes)
  * until it stops returning `pending`. `loading` starts true so callers can
