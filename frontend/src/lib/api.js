@@ -30,6 +30,10 @@ export function getStock(ticker) {
   return request(`/stock/${encodeURIComponent(ticker)}`);
 }
 
+export function getTradingSignal(ticker) {
+  return request(`/trading/${encodeURIComponent(ticker)}`);
+}
+
 export function postResearch(ticker) {
   return request(`/research`, {
     method: "POST",

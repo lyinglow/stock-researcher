@@ -11,8 +11,37 @@ import Discover from "./components/Discover";
 import InvestmentThemes from "./components/InvestmentThemes";
 import InsightArchive from "./components/InsightArchive";
 import SavedFunds from "./components/SavedFunds";
+import Trading from "./components/trading/Trading";
 import { getStock, postResearch } from "./lib/api";
 import { getSaved, toggleSaved, removeSaved } from "./lib/saved";
+
+function NavTabs({ view, onChange }) {
+  return (
+    <div
+      className="flex items-center gap-1 rounded-full border border-butter-200 bg-white/80 p-1 shadow-soft"
+      data-testid="nav-tabs"
+    >
+      {[
+        { key: "research", label: "Research" },
+        { key: "trading", label: "Trading" },
+      ].map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => onChange(tab.key)}
+          data-testid={`nav-tab-${tab.key}`}
+          className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+            view === tab.key
+              ? "bg-sky-500 text-white shadow-soft"
+              : "text-ink-500 hover:text-sky-600"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function SearchBar({ onSearch, loading }) {
   const [value, setValue] = useState("");
@@ -59,6 +88,7 @@ export default function App() {
   const [researchError, setResearchError] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const [saved, setSaved] = useState(getSaved);
+  const [view, setView] = useState("research");
 
   const isStockSaved = useMemo(
     () => !!stock && saved.some((s) => s.ticker === stock.ticker),
@@ -108,7 +138,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-butter-50">
-      <header className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 pb-10 pt-16 text-center">
+      <div className="mx-auto flex max-w-5xl justify-center px-6 pt-8">
+        <NavTabs
+          view={view}
+          onChange={(next) => {
+            setView(next);
+            goHome();
+          }}
+        />
+      </div>
+      {view === "trading" ? (
+        <Trading />
+      ) : (
+        <>
+      <header className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 pb-10 pt-8 text-center">
         <button
           type="button"
           onClick={goHome}
@@ -222,6 +265,8 @@ export default function App() {
           <SavedFunds saved={saved} onSelect={handleSearch} onRemove={handleRemoveSaved} />
           <InvestmentThemes onSelect={handleSearch} />
           <Discover onSelect={handleSearch} />
+        </>
+      )}
         </>
       )}
     </div>

@@ -13,10 +13,12 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import atr_engine
 import discover
 import llm_research
 import finnhub_client
 import themes
+import twelvedata_client
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -29,6 +31,7 @@ STOCK_CACHE_TTL_SECONDS = 60
 RESEARCH_CACHE_TTL_SECONDS = 60 * 60 * 12
 DISCOVER_CACHE_TTL_SECONDS = 60 * 60 * 4
 THEMES_CACHE_TTL_SECONDS = 60 * 60 * 8
+TRADING_CACHE_TTL_SECONDS = 60 * 15
 BACKGROUND_GENERATION_TIMEOUT_SECONDS = 400
 
 redis_client = redis.from_url(REDIS_URL, decode_responses=True) if REDIS_URL else None
@@ -121,6 +124,27 @@ async def get_stock(ticker: str):
     except Exception:
         logger.exception("stock lookup failed for %s", ticker)
         raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
+
+
+@api.get("/trading/{ticker}")
+async def get_trading_signal(ticker: str):
+    ticker = ticker.upper().strip()
+    cached = await _cache_get("trading_cache", ticker, TRADING_CACHE_TTL_SECONDS)
+    if cached:
+        return cached
+
+    try:
+        bars = twelvedata_client.fetch_daily_bars(ticker)
+    except twelvedata_client.TickerNotFound:
+        raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found")
+    except Exception:
+        logger.exception("price history fetch failed for %s", ticker)
+        raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
+
+    signal = atr_engine.compute_signal(bars)
+    result = {"ticker": ticker, **signal}
+    await _cache_set("trading_cache", ticker, result, TRADING_CACHE_TTL_SECONDS)
+    return result
 
 
 class ResearchRequest(BaseModel):

@@ -13,6 +13,8 @@ services:
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
+      - key: TWELVEDATA_API_KEY
+        sync: false
       - key: CORS_ORIGINS
         fromService:
           name: stock-researcher-web
