@@ -1,10 +1,12 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Star } from "lucide-react";
 import TradingStats from "./TradingStats";
 import TradingChart from "./TradingChart";
 import SignalTable from "./SignalTable";
+import FavoriteTickers from "./FavoriteTickers";
 import { getTradingSignal } from "../../lib/api";
+import { getTradingFavorites, toggleTradingFavorite, removeTradingFavorite } from "../../lib/tradingFavorites";
 
 function SearchBar({ onSearch, loading }) {
   const [value, setValue] = useState("");
@@ -22,7 +24,7 @@ function SearchBar({ onSearch, loading }) {
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Try AAPL, MSFT, TSLA…"
+          placeholder="Try AAPL, TSLA, or SOL-USD, BTC-USD…"
           data-testid="trading-ticker-input"
           className="w-full rounded-full border border-butter-200 bg-white/90 py-3 pl-11 pr-4
             font-display text-lg text-ink-900 shadow-soft outline-none transition
@@ -47,6 +49,12 @@ export default function Trading() {
   const [signal, setSignal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [favorites, setFavorites] = useState(getTradingFavorites);
+
+  const isFavorite = useMemo(
+    () => !!signal && favorites.includes(signal.ticker),
+    [favorites, signal]
+  );
 
   const handleSearch = useCallback(async (ticker) => {
     setLoading(true);
@@ -62,20 +70,45 @@ export default function Trading() {
     }
   }, []);
 
+  // Jump straight to your top favorite (Solana, or whatever's pinned first)
+  // the moment you land on this tab, instead of making you search it again.
+  useEffect(() => {
+    if (favorites.length > 0) {
+      handleSearch(favorites[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleToggleFavorite = useCallback(() => {
+    if (!signal) return;
+    setFavorites(toggleTradingFavorite(signal.ticker));
+  }, [signal]);
+
+  const handleRemoveFavorite = useCallback((ticker) => {
+    setFavorites(removeTradingFavorite(ticker));
+  }, []);
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col items-center gap-6 px-6 pb-24 pt-4">
-      {!signal && (
+      {!signal && !loading && (
         <div className="flex flex-col items-center gap-4 py-10 text-center">
           <h1 className="font-display text-3xl font-semibold text-ink-900">
             Where's the trend, and where's the exit?
           </h1>
           <p className="max-w-md text-ink-700">
-            The same ATR trend and range logic we built and backtested, now on any stock.
+            The same ATR trend and range logic we built and backtested, now on any stock
+            or crypto pair.
           </p>
         </div>
       )}
 
       <SearchBar onSearch={handleSearch} loading={loading} />
+      <FavoriteTickers
+        favorites={favorites}
+        active={signal?.ticker}
+        onSelect={handleSearch}
+        onRemove={handleRemoveFavorite}
+      />
       {error && (
         <p className="text-sm font-medium text-rose-600" data-testid="trading-error">
           {error}
@@ -94,6 +127,21 @@ export default function Trading() {
           >
             <div className="flex items-center gap-3">
               <h2 className="font-display text-2xl text-ink-900">{signal.ticker}</h2>
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                data-testid="trading-favorite-btn"
+                aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                className={`ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs
+                  font-semibold transition ${
+                    isFavorite
+                      ? "border-amber-400 bg-amber-50 text-amber-700"
+                      : "border-butter-200 bg-white/80 text-ink-500 hover:text-amber-600"
+                  }`}
+              >
+                <Star size={14} fill={isFavorite ? "currentColor" : "none"} />
+                {isFavorite ? "Favorited" : "Favorite"}
+              </button>
             </div>
             <TradingStats signal={signal} />
             <TradingChart signal={signal} />
