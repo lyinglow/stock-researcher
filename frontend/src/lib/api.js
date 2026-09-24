@@ -30,8 +30,12 @@ export function getStock(ticker) {
   return request(`/stock/${encodeURIComponent(ticker)}`);
 }
 
-export function getTradingSignal(ticker) {
-  return request(`/trading/${encodeURIComponent(ticker)}`);
+export function getTradingSignal(ticker, { macroMult, noiseSuppression } = {}) {
+  const params = new URLSearchParams();
+  if (macroMult != null) params.set("macro_mult", macroMult);
+  if (noiseSuppression != null) params.set("noise_suppression", noiseSuppression);
+  const qs = params.toString();
+  return request(`/trading/${encodeURIComponent(ticker)}${qs ? `?${qs}` : ""}`);
 }
 
 export function postResearch(ticker) {

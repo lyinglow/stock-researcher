@@ -126,25 +126,32 @@ async def get_stock(ticker: str):
         raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
 
 
+NOISE_MARGINS = {"none": 0.0, "low": 0.15, "medium": 0.35, "high": 0.6}
+
+
 @api.get("/trading/{ticker}")
-async def get_trading_signal(ticker: str):
+async def get_trading_signal(ticker: str, macro_mult: float = atr_engine.MACRO_MULT, noise_suppression: str = "medium"):
     ticker = ticker.upper().strip()
-    cached = await _cache_get("trading_cache", ticker, TRADING_CACHE_TTL_SECONDS)
-    if cached:
-        return cached
+    macro_mult = min(max(macro_mult, 0.5), 6.0)
+    noise_margin = NOISE_MARGINS.get(noise_suppression.lower(), NOISE_MARGINS["medium"])
 
-    try:
-        bars = twelvedata_client.fetch_daily_bars(ticker)
-    except twelvedata_client.TickerNotFound:
-        raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found")
-    except Exception:
-        logger.exception("price history fetch failed for %s", ticker)
-        raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
+    # The daily bars are the expensive, rate-limited part and don't depend on
+    # these settings, so they're what's cached. Recomputing the signal itself
+    # is cheap pure Python, so a settings change feels instant with no extra
+    # Twelve Data request.
+    bars = await _cache_get("trading_bars_cache", ticker, TRADING_CACHE_TTL_SECONDS)
+    if not bars:
+        try:
+            bars = twelvedata_client.fetch_daily_bars(ticker)
+        except twelvedata_client.TickerNotFound:
+            raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' not found")
+        except Exception:
+            logger.exception("price history fetch failed for %s", ticker)
+            raise HTTPException(status_code=502, detail="Couldn't reach the market data source, please try again")
+        await _cache_set("trading_bars_cache", ticker, bars, TRADING_CACHE_TTL_SECONDS)
 
-    signal = atr_engine.compute_signal(bars)
-    result = {"ticker": ticker, **signal}
-    await _cache_set("trading_cache", ticker, result, TRADING_CACHE_TTL_SECONDS)
-    return result
+    signal = atr_engine.compute_signal(bars, macro_mult=macro_mult, noise_margin=noise_margin)
+    return {"ticker": ticker, **signal}
 
 
 class ResearchRequest(BaseModel):

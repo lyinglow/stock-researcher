@@ -5,6 +5,7 @@ import TradingStats from "./TradingStats";
 import TradingChart from "./TradingChart";
 import SignalTable from "./SignalTable";
 import FavoriteTickers from "./FavoriteTickers";
+import TradingSettings from "./TradingSettings";
 import { getTradingSignal } from "../../lib/api";
 import { getTradingFavorites, toggleTradingFavorite, removeTradingFavorite } from "../../lib/tradingFavorites";
 
@@ -45,8 +46,12 @@ function SearchBar({ onSearch, loading }) {
   );
 }
 
+const DEFAULT_SETTINGS = { macroMult: 3.0, noiseSuppression: "medium" };
+
 export default function Trading() {
   const [signal, setSignal] = useState(null);
+  const [ticker, setTicker] = useState(null);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [favorites, setFavorites] = useState(getTradingFavorites);
@@ -56,11 +61,12 @@ export default function Trading() {
     [favorites, signal]
   );
 
-  const handleSearch = useCallback(async (ticker) => {
+  const runSearch = useCallback(async (tk, opts) => {
     setLoading(true);
     setError(null);
+    setTicker(tk);
     try {
-      const data = await getTradingSignal(ticker);
+      const data = await getTradingSignal(tk, opts);
       setSignal(data);
     } catch (e) {
       setSignal(null);
@@ -70,11 +76,21 @@ export default function Trading() {
     }
   }, []);
 
+  const handleSearch = useCallback((tk) => runSearch(tk, settings), [runSearch, settings]);
+
+  const handleSettingsChange = useCallback(
+    (next) => {
+      setSettings(next);
+      if (ticker) runSearch(ticker, next);
+    },
+    [ticker, runSearch]
+  );
+
   // Jump straight to your top favorite (Solana, or whatever's pinned first)
   // the moment you land on this tab, instead of making you search it again.
   useEffect(() => {
     if (favorites.length > 0) {
-      handleSearch(favorites[0]);
+      runSearch(favorites[0], DEFAULT_SETTINGS);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -103,6 +119,11 @@ export default function Trading() {
       )}
 
       <SearchBar onSearch={handleSearch} loading={loading} />
+      <TradingSettings
+        macroMult={settings.macroMult}
+        noiseSuppression={settings.noiseSuppression}
+        onChange={handleSettingsChange}
+      />
       <FavoriteTickers
         favorites={favorites}
         active={signal?.ticker}
