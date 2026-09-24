@@ -41,6 +41,8 @@ def fetch_daily_bars(symbol: str, outputsize: int = 500) -> list:
         },
         timeout=15,
     )
+    if resp.status_code in (400, 404):
+        raise TickerNotFound(symbol)
     resp.raise_for_status()
     body = resp.json()
 
