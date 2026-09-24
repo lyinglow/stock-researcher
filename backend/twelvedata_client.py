@@ -5,6 +5,11 @@ free tier doesn't include historical candles (paid endpoint only), and
 Yahoo/yfinance is blocked outright from cloud hosts like Render (see
 finnhub_client.py). Twelve Data's free tier includes daily time series,
 800 requests/day.
+
+Also covers crypto, same endpoint, same account, just a different symbol
+format: Twelve Data wants "SOL/USD", we accept "SOL-USD" from the frontend
+(a dash never appears in a real stock ticker in this app) and convert it
+here, so the rest of the stack doesn't need to know the difference.
 """
 import logging
 import os
@@ -25,10 +30,11 @@ def fetch_daily_bars(symbol: str, outputsize: int = 500) -> list:
     """Returns daily bars oldest-first: [{"date", "high", "low", "close"}, ...].
     Raises TickerNotFound for an invalid/unresolvable symbol."""
     symbol = symbol.upper().strip()
+    api_symbol = symbol.replace("-", "/")
     resp = requests.get(
         f"{BASE_URL}/time_series",
         params={
-            "symbol": symbol,
+            "symbol": api_symbol,
             "interval": "1day",
             "outputsize": outputsize,
             "apikey": os.environ.get("TWELVEDATA_API_KEY", ""),
