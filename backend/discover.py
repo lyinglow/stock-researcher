@@ -56,7 +56,7 @@ async def generate_discoveries() -> dict:
         session_id=f"discover-{uuid.uuid4().hex[:8]}",
         system_message=SYSTEM_MESSAGE,
     ).with_model("anthropic", "claude-sonnet-5")
-    chat.with_tools([{"type": "web_search_20260209", "name": "web_search", "max_uses": 6}])
+    chat.with_tools([{"type": "web_search_20260209", "name": "web_search", "max_uses": 4}])
     chat.with_params(max_tokens=4096)
 
     response = await chat.send_message_with_tools(UserMessage(text=PROMPT))
