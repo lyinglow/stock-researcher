@@ -187,7 +187,7 @@ export default function App() {
             className="text-xs font-medium text-ink-500 underline decoration-dotted underline-offset-4
               transition hover:text-sky-600"
           >
-            See past picks
+            See supply chain picks
           </button>
         )}
       </header>
