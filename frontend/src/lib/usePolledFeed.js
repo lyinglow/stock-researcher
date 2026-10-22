@@ -25,6 +25,8 @@ export default function usePolledFeed(fetchFn) {
   const timerRef = useRef(null);
   const tickRef = useRef(null);
   const startRef = useRef(Date.now());
+  const loadRef = useRef(null);
+  const settledRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,27 +54,46 @@ export default function usePolledFeed(fetchFn) {
           } else {
             setLoading(false);
             setFailed(true);
+            settledRef.current = true;
             stopTicking();
           }
         } else {
           setData(result);
           setLoading(false);
+          settledRef.current = true;
           stopTicking();
         }
       } catch {
         if (!cancelled) {
           setLoading(false);
           setFailed(true);
+          settledRef.current = true;
           stopTicking();
         }
       }
     }
 
+    loadRef.current = load;
     load();
+
+    // Backgrounded mobile tabs can have their timers throttled or frozen
+    // outright, so a scan that finished minutes ago never gets picked up -
+    // the page just sits on "Scanning..." indefinitely. Re-check the moment
+    // the tab becomes visible again instead of waiting on a timer that may
+    // never fire.
+    function handleVisibility() {
+      if (document.visibilityState === "visible" && !settledRef.current) {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        loadRef.current();
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
       cancelled = true;
       if (timerRef.current) clearTimeout(timerRef.current);
       stopTicking();
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
   }, [fetchFn]);
 
