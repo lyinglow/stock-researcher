@@ -10,6 +10,7 @@ import AnalystRatings from "./components/AnalystRatings";
 import Discover from "./components/Discover";
 import InvestmentThemes from "./components/InvestmentThemes";
 import InsightArchive from "./components/InsightArchive";
+import ThemesArchive from "./components/ThemesArchive";
 import SavedFunds from "./components/SavedFunds";
 import Trading from "./components/trading/Trading";
 import { getStock, postResearch } from "./lib/api";
@@ -86,7 +87,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [researchError, setResearchError] = useState(null);
-  const [showArchive, setShowArchive] = useState(false);
+  const [archiveView, setArchiveView] = useState(null); // null | "supply" | "themes"
   const [saved, setSaved] = useState(getSaved);
   const [view, setView] = useState("research");
 
@@ -133,7 +134,7 @@ export default function App() {
     setResearch(null);
     setError(null);
     setResearchError(null);
-    setShowArchive(false);
+    setArchiveView(null);
   }, []);
 
   return (
@@ -158,12 +159,12 @@ export default function App() {
           data-testid="home-link"
           className="flex items-center gap-2 text-sky-600 transition hover:text-sky-700"
         >
-          {stock || showArchive ? <ArrowLeft size={20} /> : <TrendingUp size={22} />}
+          {stock || archiveView ? <ArrowLeft size={20} /> : <TrendingUp size={22} />}
           <span className="text-sm font-semibold uppercase tracking-widest">
-            {stock || showArchive ? "Back" : "Stock Researcher"}
+            {stock || archiveView ? "Back" : "Stock Researcher"}
           </span>
         </button>
-        {!stock && !showArchive && (
+        {!stock && !archiveView && (
           <>
             <h1 className="font-display text-4xl font-semibold text-ink-900 md:text-5xl">
               Look up any stock.
@@ -173,22 +174,32 @@ export default function App() {
             </p>
           </>
         )}
-        {!showArchive && <SearchBar onSearch={handleSearch} loading={loading} />}
+        {!archiveView && <SearchBar onSearch={handleSearch} loading={loading} />}
         {error && (
           <p className="text-sm font-medium text-rose-600" data-testid="stock-error">
             {error}
           </p>
         )}
-        {!stock && !showArchive && (
-          <button
-            type="button"
-            onClick={() => setShowArchive(true)}
-            data-testid="archive-link"
-            className="text-xs font-medium text-ink-500 underline decoration-dotted underline-offset-4
-              transition hover:text-sky-600"
-          >
-            See supply chain picks
-          </button>
+        {!stock && !archiveView && (
+          <div className="flex items-center gap-3 text-xs font-medium text-ink-500">
+            <button
+              type="button"
+              onClick={() => setArchiveView("supply")}
+              data-testid="archive-link"
+              className="underline decoration-dotted underline-offset-4 transition hover:text-sky-600"
+            >
+              See supply chain picks
+            </button>
+            <span className="text-ink-300">·</span>
+            <button
+              type="button"
+              onClick={() => setArchiveView("themes")}
+              data-testid="themes-archive-link"
+              className="underline decoration-dotted underline-offset-4 transition hover:text-sky-600"
+            >
+              See themes history
+            </button>
+          </div>
         )}
       </header>
 
@@ -258,9 +269,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {!stock && !loading && showArchive && <InsightArchive onSelect={handleSearch} />}
+      {!stock && !loading && archiveView === "supply" && <InsightArchive onSelect={handleSearch} />}
+      {!stock && !loading && archiveView === "themes" && <ThemesArchive onSelect={handleSearch} />}
 
-      {!stock && !loading && !showArchive && (
+      {!stock && !loading && !archiveView && (
         <>
           <SavedFunds saved={saved} onSelect={handleSearch} onRemove={handleRemoveSaved} />
           <InvestmentThemes onSelect={handleSearch} />
