@@ -1,8 +1,66 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Light theme - clean, cool-neutral background with a violet-indigo accent. */
+:root {
+  --color-butter-50: 250 250 252;
+  --color-butter-100: 240 240 245;
+  --color-butter-200: 226 226 234;
+  --color-butter-300: 208 208 220;
+
+  --color-surface-100: 255 255 255;
+  --color-surface-200: 247 247 250;
+
+  --color-sky-50: 242 238 254;
+  --color-sky-100: 228 220 253;
+  --color-sky-200: 199 184 251;
+  --color-sky-300: 166 143 245;
+  --color-sky-400: 139 110 240;
+  --color-sky-500: 108 76 255;
+  --color-sky-600: 89 56 224;
+  --color-sky-700: 71 41 184;
+
+  --color-ink-900: 14 14 20;
+  --color-ink-700: 70 70 90;
+  --color-ink-500: 122 122 140;
+
+  --glow-opacity: 0.12;
+  --grain-opacity: 0.025;
+}
+
+/* Dark theme - near-black, crypto-exchange feel: glowing violet accent,
+ * elevated surfaces instead of flat white cards. Follows the system
+ * appearance automatically, the same way native iOS apps do. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-butter-50: 7 7 12;
+    --color-butter-100: 15 15 22;
+    --color-butter-200: 38 38 47;
+    --color-butter-300: 50 50 61;
+
+    --color-surface-100: 21 21 29;
+    --color-surface-200: 28 28 38;
+
+    --color-sky-50: 28 24 48;
+    --color-sky-100: 43 35 80;
+    --color-sky-200: 64 47 128;
+    --color-sky-300: 92 70 184;
+    --color-sky-400: 124 92 240;
+    --color-sky-500: 142 108 255;
+    --color-sky-600: 113 88 224;
+    --color-sky-700: 74 47 192;
+
+    --color-ink-900: 245 245 250;
+    --color-ink-700: 191 191 204;
+    --color-ink-500: 134 134 156;
+
+    --glow-opacity: 0.35;
+    --grain-opacity: 0.05;
+  }
+}
 
 html {
   scroll-behavior: smooth;
@@ -12,15 +70,31 @@ body {
   @apply bg-butter-50 text-ink-900;
   font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 70% 45% at 50% -8%, rgb(var(--color-sky-500) / var(--glow-opacity)), transparent 60%),
+    radial-gradient(ellipse 55% 35% at 92% 8%, rgb(var(--color-sky-400) / calc(var(--glow-opacity) * 0.6)), transparent 65%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .font-display {
-  font-family: "Fraunces", ui-serif, Georgia, serif;
-  font-optical-sizing: auto;
+  font-family: "Anton", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
 }
 
 ::selection {
-  background: #bae6fd;
+  background: rgb(var(--color-sky-200));
 }
 
 ::-webkit-scrollbar {
@@ -31,6 +105,6 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e9dcb0;
+  background: rgb(var(--color-butter-300));
   border-radius: 999px;
 }

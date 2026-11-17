@@ -11,7 +11,7 @@ function Select({ label, value, options, labelFor, onChange, testId }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
-        className="rounded-full border border-butter-200 bg-white/90 py-1.5 pl-3 pr-7 text-xs
+        className="rounded-full border border-butter-200 bg-surface-100/90 py-1.5 pl-3 pr-7 text-xs
           font-semibold text-ink-900 shadow-soft outline-none transition
           focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
       >

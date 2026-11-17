@@ -18,7 +18,7 @@ export default function FavoriteTickers({ favorites, active, onSelect, onRemove 
             shadow-soft transition ${
               active === ticker
                 ? "border-sky-400 bg-sky-50 text-sky-700"
-                : "border-butter-200/70 bg-white/80 text-ink-700 hover:-translate-y-0.5 hover:shadow-lg"
+                : "border-butter-200/70 bg-surface-100/80 text-ink-700 hover:-translate-y-0.5 hover:shadow-lg"
             }`}
         >
           <button type="button" onClick={() => onSelect(ticker)}>

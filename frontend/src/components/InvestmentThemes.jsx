@@ -13,7 +13,7 @@ export function ThemeCard({ theme, onSelect, delay }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
       data-testid={`theme-card-${theme.name}`}
-      className="flex flex-col gap-3 rounded-xl2 border border-butter-200/70 bg-white/80 p-4 shadow-soft"
+      className="flex flex-col gap-3 rounded-xl2 border border-butter-200/70 bg-surface-100/80 p-4 shadow-soft"
     >
       <div className="flex items-start justify-between gap-2">
         <div className="font-display text-base text-ink-900">{theme.name}</div>

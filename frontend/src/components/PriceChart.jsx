@@ -14,7 +14,7 @@ import { formatPrice } from "../lib/format";
 function ChartTooltip({ active, payload, label, currency }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-butter-200 bg-white px-3 py-2 shadow-soft">
+    <div className="rounded-lg border border-butter-200 bg-surface-100 px-3 py-2 shadow-soft">
       <div className="text-[11px] text-ink-500">{label}</div>
       <div className="font-display text-base text-ink-900">
         {formatPrice(payload[0].value, currency)}

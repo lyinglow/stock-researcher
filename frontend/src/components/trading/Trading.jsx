@@ -27,7 +27,7 @@ function SearchBar({ onSearch, loading }) {
           onChange={(e) => setValue(e.target.value)}
           placeholder="Try AAPL, TSLA, or SOL-USD, BTC-USD…"
           data-testid="trading-ticker-input"
-          className="w-full rounded-full border border-butter-200 bg-white/90 py-3 pl-11 pr-4
+          className="w-full rounded-full border border-butter-200 bg-surface-100/90 py-3 pl-11 pr-4
             font-display text-lg text-ink-900 shadow-soft outline-none transition
             focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
         />
@@ -157,7 +157,7 @@ export default function Trading() {
                   font-semibold transition ${
                     isFavorite
                       ? "border-amber-400 bg-amber-50 text-amber-700"
-                      : "border-butter-200 bg-white/80 text-ink-500 hover:text-amber-600"
+                      : "border-butter-200 bg-surface-100/80 text-ink-500 hover:text-amber-600"
                   }`}
               >
                 <Star size={14} fill={isFavorite ? "currentColor" : "none"} />

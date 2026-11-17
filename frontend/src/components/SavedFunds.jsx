@@ -21,7 +21,7 @@ export default function SavedFunds({ saved, onSelect, onRemove }) {
             transition={{ duration: 0.3, delay: i * 0.03 }}
             data-testid={`saved-chip-${s.ticker}`}
             className="group flex items-center gap-2 rounded-full border border-butter-200/70
-              bg-white/80 py-2 pl-4 pr-2 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
+              bg-surface-100/80 py-2 pl-4 pr-2 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
           >
             <button
               type="button"

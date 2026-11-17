@@ -79,7 +79,7 @@ export default function ThemesArchive({ onSelect }) {
         <div className="flex flex-col gap-8">
           {rankedThemes.length > 0 && (
             <div
-              className="mx-auto w-full max-w-3xl rounded-xl2 border border-butter-200/70 bg-white/80 p-4 shadow-soft"
+              className="mx-auto w-full max-w-3xl rounded-xl2 border border-butter-200/70 bg-surface-100/80 p-4 shadow-soft"
               data-testid="themes-archive-ranked"
             >
               <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-500">

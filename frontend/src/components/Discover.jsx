@@ -15,7 +15,7 @@ export function DiscoverCard({ opp, onSelect, delay }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay }}
       data-testid={`discover-card-${opp.ticker}`}
-      className="flex flex-col gap-2 rounded-xl2 border border-butter-200/70 bg-white/80 p-4
+      className="flex flex-col gap-2 rounded-xl2 border border-butter-200/70 bg-surface-100/80 p-4
         text-left shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg"
     >
       <div className="flex items-start justify-between gap-2">

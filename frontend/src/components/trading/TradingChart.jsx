@@ -16,7 +16,7 @@ function ChartTooltip({ active, payload, label }) {
   const close = payload.find((p) => p.dataKey === "close")?.value;
   const trendLine = payload.find((p) => p.dataKey === "trendLine")?.value;
   return (
-    <div className="rounded-lg border border-butter-200 bg-white px-3 py-2 shadow-soft">
+    <div className="rounded-lg border border-butter-200 bg-surface-100 px-3 py-2 shadow-soft">
       <div className="text-[11px] text-ink-500">{label}</div>
       <div className="font-display text-base text-ink-900">{formatPrice(close)}</div>
       {trendLine != null && (

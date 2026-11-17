@@ -80,7 +80,7 @@ export default function InsightArchive({ onSelect }) {
       ) : (
         <div className="flex flex-col gap-8">
           {topTickers.length > 0 && (
-            <div className="mx-auto w-full max-w-3xl rounded-xl2 border border-butter-200/70 bg-white/80 p-4 shadow-soft">
+            <div className="mx-auto w-full max-w-3xl rounded-xl2 border border-butter-200/70 bg-surface-100/80 p-4 shadow-soft">
               <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-500">
                 <Flame size={14} className="text-sky-600" />
                 Tickers coming up again and again

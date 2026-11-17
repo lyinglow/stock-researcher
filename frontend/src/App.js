@@ -19,7 +19,7 @@ import { getSaved, toggleSaved, removeSaved } from "./lib/saved";
 function NavTabs({ view, onChange }) {
   return (
     <div
-      className="flex items-center gap-1 rounded-full border border-butter-200 bg-white/80 p-1 shadow-soft"
+      className="flex items-center gap-1 rounded-full border border-butter-200 bg-surface-100/80 p-1 shadow-soft"
       data-testid="nav-tabs"
     >
       {[
@@ -62,7 +62,7 @@ function SearchBar({ onSearch, loading }) {
           onChange={(e) => setValue(e.target.value)}
           placeholder="Try AAPL, MSFT, TSLA…"
           data-testid="ticker-input"
-          className="w-full rounded-full border border-butter-200 bg-white/90 py-3 pl-11 pr-4
+          className="w-full rounded-full border border-butter-200 bg-surface-100/90 py-3 pl-11 pr-4
             font-display text-lg text-ink-900 shadow-soft outline-none transition
             focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
         />
@@ -229,7 +229,7 @@ export default function App() {
                   font-semibold transition ${
                     isStockSaved
                       ? "border-sky-400 bg-sky-50 text-sky-700"
-                      : "border-butter-200 bg-white/80 text-ink-500 hover:text-sky-600"
+                      : "border-butter-200 bg-surface-100/80 text-ink-500 hover:text-sky-600"
                   }`}
               >
                 <Bookmark size={14} fill={isStockSaved ? "currentColor" : "none"} />
