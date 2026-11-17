@@ -4,8 +4,8 @@ import Tooltip from "./Tooltip";
 
 export default function Metric({ label, tooltip, value, testId, valueClassName = "" }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1" data-testid={testId}>
-      <div className="flex min-w-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink-500">
+    <div className="flex min-w-0 flex-col items-center gap-1 text-center" data-testid={testId}>
+      <div className="flex min-w-0 items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-ink-500">
         <span className="truncate">{label}</span>
         {tooltip && (
           <Tooltip label={tooltip}>
