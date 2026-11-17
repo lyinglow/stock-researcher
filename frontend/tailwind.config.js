@@ -21,8 +21,8 @@ module.exports = {
         surface: cssVarScale("surface", [100, 200]),
       },
       fontFamily: {
-        serif: ["Anton", "ui-sans-serif", "system-ui", "sans-serif"],
-        sans: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
+        serif: ["Ropa Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Ropa Sans", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         soft: "0 1px 2px rgb(var(--color-ink-900) / 0.04), 0 8px 24px rgb(var(--color-ink-900) / 0.06)",

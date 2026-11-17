@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Anton&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Ropa+Sans:ital@0;1&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -27,7 +27,7 @@
   --color-ink-700: 70 70 90;
   --color-ink-500: 122 122 140;
 
-  --glow-opacity: 0.12;
+  --glow-opacity: 0.3;
   --grain-opacity: 0.025;
 }
 
@@ -57,7 +57,7 @@
     --color-ink-700: 191 191 204;
     --color-ink-500: 134 134 156;
 
-    --glow-opacity: 0.35;
+    --glow-opacity: 0.4;
     --grain-opacity: 0.05;
   }
 }
@@ -68,7 +68,7 @@ html {
 
 body {
   @apply bg-butter-50 text-ink-900;
-  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Ropa Sans", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   background-image:
@@ -89,8 +89,7 @@ body::before {
 }
 
 .font-display {
-  font-family: "Anton", ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: 0.01em;
+  font-family: "Ropa Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 ::selection {
